@@ -1,0 +1,101 @@
+#include "raylib.h"
+
+int main(void)
+{
+    InitWindow(1920,1080, "game");
+    SetTargetFPS (60);
+    int x = 910;
+    int y = 510;
+    int xbul;
+    int ybul;
+    int randValueX = GetRandomValue(0, 1870);
+    int randValueY = GetRandomValue(-100, -100);
+    bool bullet = false;
+
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+        if (IsKeyDown(KEY_A) && x>0) {
+            x = x - 10;
+        }
+        if (IsKeyDown(KEY_D) && x<1870) {
+            x = x + 10;
+        }
+        if (IsKeyDown(KEY_S) && y < 1030) {
+            y = y + 10;
+        }
+        if (IsKeyDown(KEY_W) && y > 5) {   
+            y = y - 10;
+        }
+        if (IsKeyPressed(KEY_F11)) {
+            ToggleFullscreen();
+        }     
+        if (randValueX < x + 12) {
+           randValueX = randValueX + 5;
+        }
+        if (randValueY < y + 12) {
+            randValueY = randValueY + 5;
+        }
+        if (randValueX > x + 12) {
+            randValueX = randValueX - 5;
+        }
+        if (randValueY > y + 12) {
+            randValueY = randValueY - 5;
+        }
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            xbul = x;
+            ybul = y;
+            bullet = true;
+        }
+      
+        ClearBackground(RAYWHITE);
+        DrawRectangle(x, y, 50, 50, BLUE);
+        DrawRectangle(randValueX, randValueY, 30, 30, GREEN);
+        
+        if (xbul < randValueX + 8) {
+            xbul = xbul + 6;
+        }
+        if (ybul < randValueY + 8) {
+            ybul = ybul + 6;
+        }
+        if (xbul > randValueX + 8) {
+            xbul = xbul - 6;
+        }
+        if (ybul > randValueY + 8) {
+            ybul = ybul - 6;
+        }
+        if (bullet) {
+            DrawRectangle(xbul, ybul, 15, 15, RED);
+        }
+        if ((xbul == randValueX + 10) && (ybul == randValueY + 10)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 9) && (ybul == randValueY + 9)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 8) && (ybul == randValueY + 8)) {
+            bullet = false; 
+        }
+        if ((xbul == randValueX + 7) && (ybul == randValueY + 7)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 6) && (ybul == randValueY + 6)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 5) && (ybul == randValueY + 5)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 4) && (ybul == randValueY + 4)) {
+            bullet = false;
+        }
+        if ((xbul == randValueX + 3) && (ybul == randValueY + 3)) {
+            bullet = false;
+        }
+        
+        EndDrawing();
+    }
+
+   
+    CloseWindow();        
+    return 0;
+}
