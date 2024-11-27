@@ -5,21 +5,26 @@
 #define PLAYER_SPEED 10
 #define BULLET_SPEED 15
 #define TARGET_SPEED 5
+#define NEW_ENEMY_THRESHOLD 5  // Порог для появления нового врага
 
 // Глобальные переменные
 Vector2 playerPos = { 910.0f, 510.0f };  // Позиция игрока
 Vector2 bulletPos = { 0.0f, 0.0f };     // Позиция пули
 Vector2 bulletVelocity = { 0.0f, 0.0f }; // Направление пули
-Vector2 targetPos = { 0.0f, 0.0f };     // Позиция цели
+Vector2 targetPos = { 0.0f, 0.0f };     // Позиция цели (зеленый квадрат)
 Vector2 targetVelocity = { 0.0f, 0.0f }; // Направление цели
 
+// Новые враги
+Vector2 newEnemyPos = { -100.0f, -100.0f };  // Позиция нового врага
+Vector2 newEnemyVelocity = { 0.0f, 0.0f };  // Направление нового врага
+bool newEnemyActive = false;  // Флаг для нового врага
+
 bool bulletActive = false; // Флаг для пули
-int health = 3; //хп
+int health = 3; // хп игрока
 int shirHealth = 150; // ширина хп
 int random = 0;
-int count = 0;
-bool game = true; //игра идёт
-Texture2D player = LoadTexture("C:/Users/Kids01/Downloads/texture.png");
+int count = 0;  // Счётчик убийств
+bool game = true; // Игра продолжается
 
 // Функция для нормализации вектора
 Vector2 NormalizeVector(Vector2 vec) {
@@ -29,6 +34,28 @@ Vector2 NormalizeVector(Vector2 vec) {
         vec.y /= length;
     }
     return vec;
+}
+
+// Функция для вычисления расстояния между двумя точками
+float Distance(Vector2 point1, Vector2 point2) {
+    return sqrtf((point2.x - point1.x) * (point2.x - point1.x) + (point2.y - point1.y) * (point2.y - point1.y));
+}
+
+// Функция для выбора цели для пули (ближайший враг)
+Vector2 GetNearestEnemy() {
+    // Сначала считаем расстояние до цели
+    float targetDistance = Distance(playerPos, targetPos);
+    Vector2 nearestEnemyPos = targetPos;  // Начнем с цели
+
+    // Если новый враг существует, проверим его расстояние
+    if (newEnemyActive) {
+        float newEnemyDistance = Distance(playerPos, newEnemyPos);
+        if (newEnemyDistance < targetDistance) {
+            nearestEnemyPos = newEnemyPos;
+        }
+    }
+
+    return nearestEnemyPos;
 }
 
 int main(void)
@@ -55,7 +82,6 @@ int main(void)
         targetPos.y = GetRandomValue(1080, 1100);
     }
 
-
     while (!WindowShouldClose())
     {
         // Движение игрока
@@ -70,8 +96,11 @@ int main(void)
             bulletPos = playerPos;  // Пуля появляется в центре игрока
             bulletActive = true;
 
-            // Вычисляем вектор от пули до цели
-            Vector2 directionToTarget = { targetPos.x - bulletPos.x, targetPos.y - bulletPos.y };
+            // Выбираем ближайшую цель
+            Vector2 nearestEnemy = GetNearestEnemy();
+
+            // Вычисляем вектор от пули до ближайшего врага
+            Vector2 directionToTarget = { nearestEnemy.x - bulletPos.x, nearestEnemy.y - bulletPos.y };
             bulletVelocity = NormalizeVector(directionToTarget);  // Нормализуем вектор для движения пули
         }
 
@@ -95,8 +124,9 @@ int main(void)
             // Проверка столкновения пули с целью
             Rectangle bulletRect = { bulletPos.x, bulletPos.y, 15, 15 };
             Rectangle targetRect = { targetPos.x, targetPos.y, 30, 30 };
+            Rectangle newEnemyRect = { newEnemyPos.x, newEnemyPos.y, 30, 30 };
             if (CheckCollisionRecs(bulletRect, targetRect)) {
-                count = count + 1;
+                count++;  // Увеличиваем счётчик убийств
                 bulletActive = false;  // Пуля уничтожает цель
 
                 // Перемещаем цель на новое место
@@ -117,10 +147,59 @@ int main(void)
                     targetPos.x = GetRandomValue(0, 1870);
                     targetPos.y = GetRandomValue(1080, 1100);
                 }
+
+                // Спавним нового врага, если было убито 5 врагов
+                if (count >= NEW_ENEMY_THRESHOLD && !newEnemyActive) {
+                    if (random == 1) {
+                        newEnemyPos.x = GetRandomValue(-10, 0);
+                        newEnemyPos.y = GetRandomValue(0, 1030);
+                    }
+                    if (random == 2) {
+                        newEnemyPos.x = GetRandomValue(0, 1870);
+                        newEnemyPos.y = GetRandomValue(-10, 0);
+                    }
+                    if (random == 3) {
+                        newEnemyPos.x = GetRandomValue(1920, 1970);
+                        newEnemyPos.y = GetRandomValue(0, 1080);
+                    }
+                    if (random == 4) {
+                        newEnemyPos.x = GetRandomValue(0, 1870);
+                        newEnemyPos.y = GetRandomValue(1080, 1100);
+                    }                
+                    newEnemyActive = true;
+                }
             }
-            if (count >= 5) {
-                DrawRectangle(targetPos.x, targetPos.y, 30, 30, YELLOW);
-            }
+            if (CheckCollisionRecs(bulletRect, newEnemyRect)) {
+                count++;  // Увеличиваем счётчик убийств
+                bulletActive = false;  // Пуля уничтожает цель
+
+                // Перемещаем цель на новое место
+                random = GetRandomValue(1, 4);
+                if (random == 1) {
+                    newEnemyRect.x = GetRandomValue(-10, 0);
+                    newEnemyRect.y = GetRandomValue(0, 1030);
+                }
+                if (random == 2) {
+                    newEnemyRect.x = GetRandomValue(0, 1870);
+                    newEnemyRect.y = GetRandomValue(-10, 0);
+                }
+                if (random == 3) {
+                    newEnemyRect.x = GetRandomValue(1920, 1970);
+                    newEnemyRect.y = GetRandomValue(0, 1080);
+                }
+                if (random == 4) {
+                    newEnemyRect.x = GetRandomValue(0, 1870);
+                    newEnemyRect.y = GetRandomValue(1080, 1100);
+                }
+        }
+
+        // Движение нового врага (к игроку)
+        if (newEnemyActive) {
+            Vector2 directionToPlayerNewEnemy = { playerPos.x - newEnemyPos.x, playerPos.y - newEnemyPos.y };
+            newEnemyVelocity = NormalizeVector(directionToPlayerNewEnemy);  // Нормализуем вектор для движения нового врага
+
+            newEnemyPos.x += newEnemyVelocity.x * TARGET_SPEED;
+            newEnemyPos.y += newEnemyVelocity.y * TARGET_SPEED;
         }
 
         // Проверка столкновения игрока с целью
@@ -128,38 +207,84 @@ int main(void)
         Rectangle targetRect = { targetPos.x, targetPos.y, 30, 30 };
         if (CheckCollisionRecs(playerRect, targetRect)) {
             // Если игрок столкнулся с целью, цель исчезает
-            targetPos.x = GetRandomValue(0, 1870);
-            targetPos.y = GetRandomValue(0, 1030);
-            health = health - 1;
-            shirHealth = shirHealth - 50;
+            if (random == 1) {
+                targetPos.x = GetRandomValue(-10, 0);
+                targetPos.y = GetRandomValue(0, 1030);
+            }
+            if (random == 2) {
+                targetPos.x = GetRandomValue(0, 1870);
+                targetPos.y = GetRandomValue(-10, 0);
+            }
+            if (random == 3) {
+                targetPos.x = GetRandomValue(1920, 1970);
+                targetPos.y = GetRandomValue(0, 1080);
+            }
+            if (random == 4) {
+                targetPos.x = GetRandomValue(0, 1870);
+                targetPos.y = GetRandomValue(1080, 1100);
+            }
+            health--;
+            shirHealth -= 50;
         }
+
+        // Проверка столкновения игрока с новым врагом
+        Rectangle newEnemyRect = { newEnemyPos.x, newEnemyPos.y, 30, 30 };
+        if (newEnemyActive && CheckCollisionRecs(playerRect, newEnemyRect)) {
+            // Если игрок столкнулся с новой целью, цель исчезает
+            if (random == 1) {
+                newEnemyPos.x = GetRandomValue(-10, 0);
+                newEnemyPos.y = GetRandomValue(0, 1030);
+            }
+            if (random == 2) {
+                newEnemyPos.x = GetRandomValue(0, 1870);
+                newEnemyPos.y = GetRandomValue(-10, 0);
+            }
+            if (random == 3) {
+                newEnemyPos.x = GetRandomValue(1920, 1970);
+                newEnemyPos.y = GetRandomValue(0, 1080);
+            }
+            if (random == 4) {
+                newEnemyPos.x = GetRandomValue(0, 1870);
+                newEnemyPos.y = GetRandomValue(1080, 1100);
+            }
+            health--;  // Потеря здоровья при столкновении с новым врагом
+            shirHealth -= 50;
+        }
+
         if (health <= 0) {
-                
-                game = false;
-            }
+            game = false;
+        }
 
-                // Отображение
-            BeginDrawing();
-            ClearBackground(RAYWHITE);
+        // Отображение
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
 
-            DrawRectangle(1700, 100, shirHealth, 50, GREEN);
+        // Отображение здоровья
+        DrawRectangle(1700, 100, shirHealth, 50, GREEN);
 
-            // Отрисовка игрока
-            DrawRectangle(playerPos.x, playerPos.y, 50, 50, BLUE);
-            DrawTexture(player, playerPos.x, playerPos.y, WHITE);
-            // Отрисовка цели
-            DrawRectangle(targetPos.x, targetPos.y, 30, 30, GREEN);
-            // Отрисовка пули
-            if (bulletActive) {
-                DrawRectangle(bulletPos.x, bulletPos.y, 15, 15, RED);
-            }
-            if (!game) {
-                DrawRectangle(0, 0, 1000000, 1000000, BLACK);
-                DrawText("game over", 800, 550, 40, RED);
-            }
+        // Отрисовка игрока
+        DrawRectangle(playerPos.x, playerPos.y, 50, 50, BLUE);
 
-            EndDrawing();
-        
+        // Отрисовка цели
+        DrawRectangle(targetPos.x, targetPos.y, 30, 30, GREEN);
+
+        // Отрисовка пули
+        if (bulletActive) {
+            DrawRectangle(bulletPos.x, bulletPos.y, 15, 15, RED);
+        }
+
+        // Отрисовка нового врага
+        if (newEnemyActive) {
+            DrawRectangle(newEnemyPos.x, newEnemyPos.y, 30, 30, RED); // Новый враг отображается красным
+        }
+
+        // Показ игры "game over"
+        if (!game) {
+            DrawRectangle(0, 0, 1000000, 1000000, BLACK);
+            DrawText("Game Over", 800, 550, 40, RED);
+        }
+
+        EndDrawing();
     }
 
     CloseWindow();  // Закрываем окно
