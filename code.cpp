@@ -10,6 +10,8 @@
 #define MAX_ENEMIES 100         // Максимальное количество врагов
 #define ENEMY_SIZE 30
 #define MAX_BULLETS 10         // Максимальное количество пуль
+#define ATTACK_RADIUS 100      // Радиус атаки
+#define ATTACK_DURATION 0.5f   // Продолжительность атаки (в секундах)
 
 typedef struct {
     Vector2 position;
@@ -39,6 +41,10 @@ float enemySpawnRate = 0.7f;        // Время между спауном
 float timeSinceLastSpawn = 0.0f;    // Время с последнего спауна врагов
 
 bool paused = false;  // Флаг для паузы
+
+// Для атаки
+bool attacking = false;         // Флаг атаки
+float attackTimer = 0.0f;       // Таймер атаки
 
 // Нормализация вектора
 Vector2 NormalizeVector(Vector2 vec) {
@@ -142,6 +148,31 @@ Vector2 GetNearestEnemy() {
     return nearestPos;
 }
 
+// Функция для атаки
+void PerformAttack() {
+    attacking = true;
+    attackTimer = ATTACK_DURATION;  // Устанавливаем время атаки
+}
+
+// Функция для обработки атаки
+void UpdateAttack(float deltaTime) {
+    if (attacking) {
+        attackTimer -= deltaTime;
+
+        if (attackTimer <= 0) {
+            attacking = false;  // Завершаем атаку, когда таймер истекает
+        }
+    }
+}
+
+// Функция для проверки попадания врага в круг атаки
+bool CheckEnemyHitAttack(Enemy enemy) {
+    float distance = sqrtf((enemy.position.x - playerPos.x) * (enemy.position.x - playerPos.x) +
+        (enemy.position.y - playerPos.y) * (enemy.position.y - playerPos.y));
+
+    return distance <= ATTACK_RADIUS;  // Если враг находится в радиусе атаки
+}
+
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Enemy Waves Game");
     SetTargetFPS(60);
@@ -201,6 +232,14 @@ int main(void) {
                 }
             }
 
+            // Атака с ПКМ
+            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                PerformAttack();
+            }
+
+            // Обновление состояния атаки
+            UpdateAttack(GetFrameTime());
+
             // Движение пуль
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (bullets[i].active) {
@@ -239,6 +278,11 @@ int main(void) {
                         shirHealth -= 50;
                         if (health <= 0) game = false;
                     }
+
+                    // Проверка попадания врагов в круг атаки
+                    if (attacking && CheckEnemyHitAttack(enemies[i])) {
+                        enemies[i].active = false;  // Уничтожаем врага, если он в зоне атаки
+                    }
                 }
             }
         }
@@ -272,6 +316,11 @@ int main(void) {
         // Отображаем паузу
         if (paused) {
             DrawText("PAUSED", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2, 40, RED);
+        }
+
+        // Отображаем круг атаки, если активен
+        if (attacking) {
+            DrawCircleV({playerPos.x+25,playerPos.y+25}, ATTACK_RADIUS, Color{255, 0, 0, 50});  // Полупрозрачный красный круг
         }
 
         EndDrawing();
