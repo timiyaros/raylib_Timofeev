@@ -13,10 +13,12 @@
 #define ATTACK_RADIUS 100      // Радиус атаки
 #define ATTACK_DURATION 0.5f   // Продолжительность атаки (в секундах)
 #define EXPERIENCE_SIZE 10     // Размер квадратика опыта
+#define EXPERIENCE_LIFETIME 10.0f // Время жизни опыта в секундах
 
 typedef struct {
     Vector2 position;
     bool active;
+    float lifetime;  // Время жизни опыта
 } Experience;  // Структура для опыта
 
 typedef struct {
@@ -182,9 +184,16 @@ bool CheckEnemyHitAttack(Enemy enemy) {
 }
 
 // Обновляем состояние опыта
-void UpdateExperience() {
+void UpdateExperience(float deltaTime) {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (experience[i].active) {
+            experience[i].lifetime -= deltaTime;  // Уменьшаем время жизни
+
+            // Если время жизни опыта истекло, деактивируем его
+            if (experience[i].lifetime <= 0) {
+                experience[i].active = false;
+            }
+
             // Проверка на сбор опыта
             if (CheckCollisionRecs(Rectangle{ playerPos.x, playerPos.y, 50, 50 },
                 Rectangle{ experience[i].position.x, experience[i].position.y, EXPERIENCE_SIZE, EXPERIENCE_SIZE })) {
@@ -200,6 +209,7 @@ void SpawnExperience(Vector2 position) {
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (!experience[i].active) {
             experience[i].position = position;
+            experience[i].lifetime = EXPERIENCE_LIFETIME;  // Устанавливаем время жизни опыта
             experience[i].active = true;
             break;
         }
@@ -324,7 +334,7 @@ int main(void) {
             }
 
             // Обновление опыта
-            UpdateExperience();
+            UpdateExperience(GetFrameTime());
         }
 
         // Отрисовка
@@ -355,17 +365,15 @@ int main(void) {
             }
         }
 
-        // Отображаем ХП и количество убийств
+        // Выводим счёт
         DrawText(TextFormat("Health: %i", health), 10, 40, 20, WHITE);
         DrawText(TextFormat("Kills: %i", count), 10, 60, 20, WHITE);
         DrawText(TextFormat("Experience: %i", totalExperience), 10, 80, 20, WHITE);
         DrawRectangle(10, 100, shirHealth, 20, RED);  // ПАНЕЛЬ ХП
-
-        // Отображаем паузу
+        // Пауза
         if (paused) {
             DrawText("PAUSED", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2, 40, RED);
         }
-
         // Отображаем круг атаки, если активен
         if (attacking) {
             DrawCircleV({ playerPos.x + 25,playerPos.y + 25 }, ATTACK_RADIUS, Color{ 255, 0, 0, 50 });  // Полупрозрачный красный круг
@@ -374,7 +382,7 @@ int main(void) {
         EndDrawing();
     }
 
-    CloseWindow();  // Закрытие окна игры
+    CloseWindow(); // Закрытие окна и освобождение ресурсов
 
     return 0;
 }
