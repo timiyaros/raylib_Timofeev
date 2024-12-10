@@ -16,6 +16,11 @@
 
 typedef struct {
     Vector2 position;
+    bool active;
+} Experience;  // Структура для опыта
+
+typedef struct {
+    Vector2 position;
     Vector2 velocity;
     bool active;
     int type;  // Тип врага
@@ -27,19 +32,15 @@ typedef struct {
     bool active;
 } Bullet;
 
-typedef struct {
-    Vector2 position;
-    bool active;
-} Experience;
-
 Enemy enemies[MAX_ENEMIES];
 Bullet bullets[MAX_BULLETS];
-Experience experience[MAX_ENEMIES];  // Массив для опыта
+Experience experience[MAX_ENEMIES];  // Массив для хранения опыта
 
 Vector2 playerPos = { 910.0f, 510.0f };  // Позиция игрока
 int health = 3;             // ХП игрока
 int shirHealth = 150;       // Ширина ХП
 int count = 0;              // Счётчик убийств
+int totalExperience = 0;    // Суммарный опыт
 bool game = true;           // Игра продолжается
 
 float enemySpeed = BASE_TARGET_SPEED; // Начальная скорость врагов
@@ -137,7 +138,7 @@ void HandleEnemyCollision(Enemy* enemy1, Enemy* enemy2) {
     }
 }
 
-// Получение ближайшего врага
+// Функция для получения ближайшего врага
 Vector2 GetNearestEnemy() {
     float minDistance = 1e6;
     Vector2 nearestPos = { 0, 0 };
@@ -180,15 +181,27 @@ bool CheckEnemyHitAttack(Enemy enemy) {
     return distance <= ATTACK_RADIUS;  // Если враг находится в радиусе атаки
 }
 
-// Функция для сбора опыта
-void CollectExperience() {
+// Обновляем состояние опыта
+void UpdateExperience() {
     for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (experience[i].active && CheckCollisionRecs(Rectangle{
-            playerPos.x, playerPos.y, 50, 50
-            }, Rectangle{
-                experience[i].position.x, experience[i].position.y, EXPERIENCE_SIZE, EXPERIENCE_SIZE
-            })) {
-            experience[i].active = false;  // Собираем опыт
+        if (experience[i].active) {
+            // Проверка на сбор опыта
+            if (CheckCollisionRecs(Rectangle{ playerPos.x, playerPos.y, 50, 50 },
+                Rectangle{ experience[i].position.x, experience[i].position.y, EXPERIENCE_SIZE, EXPERIENCE_SIZE })) {
+                experience[i].active = false;  // Убираем опыт
+                totalExperience++;  // Увеличиваем опыт
+            }
+        }
+    }
+}
+
+// Генерация опыта после убийства врага
+void SpawnExperience(Vector2 position) {
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!experience[i].active) {
+            experience[i].position = position;
+            experience[i].active = true;
+            break;
         }
     }
 }
@@ -236,6 +249,8 @@ int main(void) {
             if (IsKeyDown(KEY_S) && playerPos.y < SCREEN_HEIGHT - 50) playerPos.y += PLAYER_SPEED;
             if (IsKeyDown(KEY_A) && playerPos.x > 0) playerPos.x -= PLAYER_SPEED;
             if (IsKeyDown(KEY_D) && playerPos.x < SCREEN_WIDTH - 50) playerPos.x += PLAYER_SPEED;
+            //Полный экран
+            if (IsKeyPressed(KEY_F11)) { ToggleFullscreen(); }
 
             // Стрельба
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -277,9 +292,8 @@ int main(void) {
                             Rectangle{ enemies[j].position.x, enemies[j].position.y, ENEMY_SIZE, ENEMY_SIZE })) {
                             enemies[j].active = false;  // Уничтожаем врага
                             bullets[i].active = false;  // Останавливаем пулю
-                            experience[j].position = enemies[j].position; // Создаём опыт
-                            experience[j].active = true;
                             count++; // Увеличиваем счет
+                            SpawnExperience(enemies[j].position); // Генерируем опыт на месте убитого врага
                         }
                     }
                 }
@@ -304,12 +318,13 @@ int main(void) {
                     // Проверка попадания врагов в круг атаки
                     if (attacking && CheckEnemyHitAttack(enemies[i])) {
                         enemies[i].active = false;  // Уничтожаем врага, если он в зоне атаки
+                        SpawnExperience(enemies[i].position); // Генерируем опыт на месте убитого врага
                     }
                 }
             }
 
-            // Сбор опыта
-            CollectExperience();
+            // Обновление опыта
+            UpdateExperience();
         }
 
         // Отрисовка
@@ -339,8 +354,12 @@ int main(void) {
                 DrawRectangleV(experience[i].position, Vector2{ EXPERIENCE_SIZE, EXPERIENCE_SIZE }, GREEN);
             }
         }
-        DrawText(TextFormat("Kills: %i", count), 10, 40, 20, WHITE);
-        DrawRectangle(10, 80, shirHealth, 20, RED);  // ПАНЕЛЬ ХП
+
+        // Отображаем ХП и количество убийств
+        DrawText(TextFormat("Health: %i", health), 10, 40, 20, WHITE);
+        DrawText(TextFormat("Kills: %i", count), 10, 60, 20, WHITE);
+        DrawText(TextFormat("Experience: %i", totalExperience), 10, 80, 20, WHITE);
+        DrawRectangle(10, 100, shirHealth, 20, RED);  // ПАНЕЛЬ ХП
 
         // Отображаем паузу
         if (paused) {
