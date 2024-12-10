@@ -12,6 +12,7 @@
 #define MAX_BULLETS 10         // Максимальное количество пуль
 #define ATTACK_RADIUS 100      // Радиус атаки
 #define ATTACK_DURATION 0.5f   // Продолжительность атаки (в секундах)
+#define EXPERIENCE_SIZE 10     // Размер квадратика опыта
 
 typedef struct {
     Vector2 position;
@@ -26,8 +27,14 @@ typedef struct {
     bool active;
 } Bullet;
 
+typedef struct {
+    Vector2 position;
+    bool active;
+} Experience;
+
 Enemy enemies[MAX_ENEMIES];
 Bullet bullets[MAX_BULLETS];
+Experience experience[MAX_ENEMIES];  // Массив для опыта
 
 Vector2 playerPos = { 910.0f, 510.0f };  // Позиция игрока
 int health = 3;             // ХП игрока
@@ -173,6 +180,19 @@ bool CheckEnemyHitAttack(Enemy enemy) {
     return distance <= ATTACK_RADIUS;  // Если враг находится в радиусе атаки
 }
 
+// Функция для сбора опыта
+void CollectExperience() {
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (experience[i].active && CheckCollisionRecs(Rectangle{
+            playerPos.x, playerPos.y, 50, 50
+            }, Rectangle{
+                experience[i].position.x, experience[i].position.y, EXPERIENCE_SIZE, EXPERIENCE_SIZE
+            })) {
+            experience[i].active = false;  // Собираем опыт
+        }
+    }
+}
+
 int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Enemy Waves Game");
     SetTargetFPS(60);
@@ -257,6 +277,8 @@ int main(void) {
                             Rectangle{ enemies[j].position.x, enemies[j].position.y, ENEMY_SIZE, ENEMY_SIZE })) {
                             enemies[j].active = false;  // Уничтожаем врага
                             bullets[i].active = false;  // Останавливаем пулю
+                            experience[j].position = enemies[j].position; // Создаём опыт
+                            experience[j].active = true;
                             count++; // Увеличиваем счет
                         }
                     }
@@ -285,6 +307,9 @@ int main(void) {
                     }
                 }
             }
+
+            // Сбор опыта
+            CollectExperience();
         }
 
         // Отрисовка
@@ -308,8 +333,12 @@ int main(void) {
             }
         }
 
-        // Отображаем ХП и количество убийств
-        DrawText(TextFormat("Health: %i", health), 10, 10, 20, WHITE);
+        // Отображаем опыт
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            if (experience[i].active) {
+                DrawRectangleV(experience[i].position, Vector2{ EXPERIENCE_SIZE, EXPERIENCE_SIZE }, GREEN);
+            }
+        }
         DrawText(TextFormat("Kills: %i", count), 10, 40, 20, WHITE);
         DrawRectangle(10, 80, shirHealth, 20, RED);  // ПАНЕЛЬ ХП
 
@@ -320,7 +349,7 @@ int main(void) {
 
         // Отображаем круг атаки, если активен
         if (attacking) {
-            DrawCircleV({playerPos.x+25,playerPos.y+25}, ATTACK_RADIUS, Color{255, 0, 0, 50});  // Полупрозрачный красный круг
+            DrawCircleV({ playerPos.x + 25,playerPos.y + 25 }, ATTACK_RADIUS, Color{ 255, 0, 0, 50 });  // Полупрозрачный красный круг
         }
 
         EndDrawing();
