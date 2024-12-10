@@ -132,10 +132,10 @@ int main(void)
                 random = GetRandomValue(1, 4);
                 if (random == 1) {
                     targetPos.x = GetRandomValue(-10, 0);
-                    targetPos.y = GetRandomValue(0, 1030);
+                    targetPos.y = GetRandomValue(0, 1080);
                 }
                 if (random == 2) {
-                    targetPos.x = GetRandomValue(0, 1870);
+                    targetPos.x = GetRandomValue(0, 1920);
                     targetPos.y = GetRandomValue(-10, 0);
                 }
                 if (random == 3) {
@@ -143,7 +143,7 @@ int main(void)
                     targetPos.y = GetRandomValue(0, 1080);
                 }
                 if (random == 4) {
-                    targetPos.x = GetRandomValue(0, 1870);
+                    targetPos.x = GetRandomValue(0, 1920);
                     targetPos.y = GetRandomValue(1080, 1100);
                 }
 
@@ -151,10 +151,10 @@ int main(void)
                 if (count >= NEW_ENEMY_THRESHOLD && !newEnemyActive) {
                     if (random == 1) {
                         newEnemyPos.x = GetRandomValue(-10, 0);
-                        newEnemyPos.y = GetRandomValue(0, 1030);
+                        newEnemyPos.y = GetRandomValue(0, 1080);
                     }
                     if (random == 2) {
-                        newEnemyPos.x = GetRandomValue(0, 1870);
+                        newEnemyPos.x = GetRandomValue(0, 1920);
                         newEnemyPos.y = GetRandomValue(-10, 0);
                     }
                     if (random == 3) {
@@ -162,7 +162,7 @@ int main(void)
                         newEnemyPos.y = GetRandomValue(0, 1080);
                     }
                     if (random == 4) {
-                        newEnemyPos.x = GetRandomValue(0, 1870);
+                        newEnemyPos.x = GetRandomValue(0, 1920);
                         newEnemyPos.y = GetRandomValue(1080, 1100);
                     }
                     newEnemyActive = true;
@@ -186,10 +186,10 @@ int main(void)
             // Если игрок столкнулся с целью, цель исчезает
             if (random == 1) {
                 targetPos.x = GetRandomValue(-10, 0);
-                targetPos.y = GetRandomValue(0, 1030);
+                targetPos.y = GetRandomValue(0, 1080);
             }
             if (random == 2) {
-                targetPos.x = GetRandomValue(0, 1870);
+                targetPos.x = GetRandomValue(0, 1920);
                 targetPos.y = GetRandomValue(-10, 0);
             }
             if (random == 3) {
@@ -197,34 +197,13 @@ int main(void)
                 targetPos.y = GetRandomValue(0, 1080);
             }
             if (random == 4) {
-                targetPos.x = GetRandomValue(0, 1870);
+                targetPos.x = GetRandomValue(0, 1920);
                 targetPos.y = GetRandomValue(1080, 1100);
             }
             health--;
             shirHealth -= 50;
         }
-        Rectangle newEnemyRect = { newEnemyPos.x,  newEnemyPos.y, 30, 30 };
-        if (newEnemyActive && CheckCollisionRecs(playerRect, newEnemyRect)) {
-            // Если игрок столкнулся с целью, цель исчезает
-            if (random == 1) {
-                targetPos.x = GetRandomValue(-10, 0);
-                targetPos.y = GetRandomValue(0, 1030);
-            }
-            if (random == 2) {
-                targetPos.x = GetRandomValue(0, 1870);
-                targetPos.y = GetRandomValue(-10, 0);
-            }
-            if (random == 3) {
-                targetPos.x = GetRandomValue(1920, 1970);
-                targetPos.y = GetRandomValue(0, 1080);
-            }
-            if (random == 4) {
-                targetPos.x = GetRandomValue(0, 1870);
-                targetPos.y = GetRandomValue(1080, 1100);
-            }
-            health--;
-            shirHealth -= 50;
-        }
+       
         // Проверка столкновения игрока с новым врагом
         Rectangle newEnemyRect = { newEnemyPos.x, newEnemyPos.y, 30, 30 };
         Rectangle bulletRect = { bulletPos.x, bulletPos.y, 15, 15 };
@@ -234,10 +213,10 @@ int main(void)
             bulletActive = false;  // Пуля уничтожает цель
             if (random == 1) {
                 newEnemyPos.x = GetRandomValue(-10, 0);
-                newEnemyPos.y = GetRandomValue(0, 1030);
+                newEnemyPos.y = GetRandomValue(0, 1080);
             }
             if (random == 2) {
-                newEnemyPos.x = GetRandomValue(0, 1870);
+                newEnemyPos.x = GetRandomValue(0, 1920);
                 newEnemyPos.y = GetRandomValue(-10, 0);
             }
             if (random == 3) {
@@ -245,9 +224,30 @@ int main(void)
                 newEnemyPos.y = GetRandomValue(0, 1080);
             }
             if (random == 4) {
-                newEnemyPos.x = GetRandomValue(0, 1870);
-                newEnemyPos.y = GetRandomValue(1080, 1100);
+                newEnemyPos.x = GetRandomValue(0, 1920);
+                newEnemyPos.y = GetRandomValue(1080, 1110);
             }
+        }
+        if (newEnemyActive && CheckCollisionRecs(playerRect, newEnemyRect)) {
+            // Если игрок столкнулся с целью, цель исчезает
+            if (random == 1) {
+                newEnemyPos.x = GetRandomValue(-10, 0);
+                newEnemyPos.y = GetRandomValue(0, 1080);
+            }
+            if (random == 2) {
+                newEnemyPos.x = GetRandomValue(0, 1920);
+                newEnemyPos.y = GetRandomValue(-10, 0);
+            }
+            if (random == 3) {
+                newEnemyPos.x = GetRandomValue(1920, 1970);
+                newEnemyPos.y = GetRandomValue(0, 1080);
+            }
+            if (random == 4) {
+                newEnemyPos.x = GetRandomValue(0, 1920);
+                newEnemyPos.y = GetRandomValue(1080, 1110);
+            }
+            health--;
+            shirHealth -= 50;
         }
         if (health <= 0) {
             game = false;
@@ -281,6 +281,7 @@ int main(void)
             DrawRectangle(0, 0, 1000000, 1000000, BLACK);
             DrawText("Game Over", 800, 550, 40, RED);
         }
+
 
         EndDrawing();
     }
