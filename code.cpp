@@ -6,27 +6,39 @@
 #define SCREEN_HEIGHT 1080
 #define PLAYER_SPEED 5.0f
 #define BULLET_SPEED 10.0f
-#define TARGET_SPEED 2.0f
-#define MAX_ENEMIES 50
+#define BASE_TARGET_SPEED 3.0f  // Начальная скорость врагов
+#define MAX_ENEMIES 100         // Максимальное количество врагов
+#define ENEMY_SIZE 30
+#define MAX_BULLETS 10         // Максимальное количество пуль
 
 typedef struct {
     Vector2 position;
     Vector2 velocity;
     bool active;
+    int type;  // Тип врага
 } Enemy;
 
+typedef struct {
+    Vector2 position;
+    Vector2 velocity;
+    bool active;
+} Bullet;
+
 Enemy enemies[MAX_ENEMIES];
+Bullet bullets[MAX_BULLETS];
 
 Vector2 playerPos = { 910.0f, 510.0f };  // Позиция игрока
-Vector2 bulletPos = { 0.0f, 0.0f };      // Позиция пули
-Vector2 bulletVelocity = { 0.0f, 0.0f }; // Направление пули
-
-bool bulletActive = false;  // Флаг для пули
 int health = 3;             // ХП игрока
 int shirHealth = 150;       // Ширина ХП
 int count = 0;              // Счётчик убийств
 bool game = true;           // Игра продолжается
-int waveNumber = 0;         // Номер волны
+
+float enemySpeed = BASE_TARGET_SPEED; // Начальная скорость врагов
+int enemyCount = 15;                // Начальное количество врагов
+float enemySpawnRate = 0.7f;        // Время между спауном
+float timeSinceLastSpawn = 0.0f;    // Время с последнего спауна врагов
+
+bool paused = false;  // Флаг для паузы
 
 // Нормализация вектора
 Vector2 NormalizeVector(Vector2 vec) {
@@ -48,10 +60,11 @@ bool AreAllEnemiesDead() {
     return true;  // Все враги мертвы
 }
 
-// Функция для инициализации волны врагов
-void SpawnWave(int numEnemies) {
+// Функция для инициализации врага
+void SpawnEnemy() {
+    // По мере увеличения количества врагов, их спавн будет происходить чаще
     for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (i < numEnemies) {
+        if (!enemies[i].active) {
             enemies[i].active = true;
 
             // Рандомный спавн за пределами экрана
@@ -72,9 +85,41 @@ void SpawnWave(int numEnemies) {
                 enemies[i].position.x = GetRandomValue(0, SCREEN_WIDTH);
                 enemies[i].position.y = SCREEN_HEIGHT + 10;
             }
+
+            // Разные типы врагов (например, медленные и быстрые)
+            enemies[i].type = GetRandomValue(0, 1);  // Тип 0 - обычный, 1 - быстрый
+
+            enemies[i].velocity = Vector2{ 0 };
+            break;
+        }
+    }
+}
+
+// Функция для проверки столкновения двух врагов
+bool CheckCollisionBetweenEnemies(Enemy enemy1, Enemy enemy2) {
+    return CheckCollisionRecs(Rectangle{
+        enemy1.position.x, enemy1.position.y, ENEMY_SIZE, ENEMY_SIZE
+        }, Rectangle{
+            enemy2.position.x, enemy2.position.y, ENEMY_SIZE, ENEMY_SIZE
+        });
+}
+
+// Функция для корректировки позиции врага, если происходит столкновение
+void HandleEnemyCollision(Enemy* enemy1, Enemy* enemy2) {
+    // Простейшая коррекция - сдвигаем врага вбок
+    if (CheckCollisionBetweenEnemies(*enemy1, *enemy2)) {
+        if (enemy1->position.x < enemy2->position.x) {
+            enemy1->position.x -= 5;  // Сдвигаем влево
         }
         else {
-            enemies[i].active = false;  // Отключаем лишних врагов
+            enemy1->position.x += 5;  // Сдвигаем вправо
+        }
+
+        if (enemy1->position.y < enemy2->position.y) {
+            enemy1->position.y -= 5;  // Сдвигаем вверх
+        }
+        else {
+            enemy1->position.y += 5;  // Сдвигаем вниз
         }
     }
 }
@@ -101,67 +146,99 @@ int main(void) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Enemy Waves Game");
     SetTargetFPS(60);
 
-    waveNumber = 1;
-    SpawnWave(5); // Начальная волна
+    SpawnEnemy(); // Начальный спавн
 
     while (!WindowShouldClose() && game) {
-        // Спавн новой волны, если все враги мертвы
-        if (AreAllEnemiesDead()) {
-            waveNumber++;
-            SpawnWave(5 + waveNumber * 2);  // Увеличение количества врагов на каждой волне
+        // Проверка на паузу
+        if (IsKeyPressed(KEY_P)) {
+            paused = !paused;  // Переключение паузы
         }
 
-        // Движение игрока
-        if (IsKeyDown(KEY_W) && playerPos.y > 0) playerPos.y -= PLAYER_SPEED;
-        if (IsKeyDown(KEY_S) && playerPos.y < SCREEN_HEIGHT - 50) playerPos.y += PLAYER_SPEED;
-        if (IsKeyDown(KEY_A) && playerPos.x > 0) playerPos.x -= PLAYER_SPEED;
-        if (IsKeyDown(KEY_D) && playerPos.x < SCREEN_WIDTH - 50) playerPos.x += PLAYER_SPEED;
+        // Если игра на паузе, ничего не обновляем
+        if (!paused) {
+            // Обновление времени и проверка необходимости спауна нового врага
+            timeSinceLastSpawn += GetFrameTime();
 
-        // Стрельба
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !bulletActive) {
-            bulletPos = playerPos;
-            bulletActive = true;
-            Vector2 nearestEnemy = GetNearestEnemy();
-            bulletVelocity = NormalizeVector(Vector2{ nearestEnemy.x - bulletPos.x, nearestEnemy.y - bulletPos.y });
-        }
+            // Если прошло достаточно времени, то спавним врага
+            if (timeSinceLastSpawn >= enemySpawnRate) {
+                timeSinceLastSpawn = 0.0f;  // Сбрасываем таймер
+                SpawnEnemy();  // Спавним врага
 
-        // Движение пули
-        if (bulletActive) {
-            bulletPos.x += bulletVelocity.x * BULLET_SPEED;
-            bulletPos.y += bulletVelocity.y * BULLET_SPEED;
+                // Увеличиваем количество врагов на 1 раз за цикл
+                if (enemyCount < MAX_ENEMIES) {
+                    enemyCount++;  // Увеличиваем количество врагов
+                }
 
-            if (bulletPos.x < 0 || bulletPos.x > SCREEN_WIDTH || bulletPos.y < 0 || bulletPos.y > SCREEN_HEIGHT)
-                bulletActive = false;
+                // Немного увеличиваем скорость врагов
+                if (enemySpeed < BASE_TARGET_SPEED + 0.4f) { // Увеличение когда
+                    enemySpeed += 0.04f;  // Увеличиваем скорость врагов
+                }
 
-            for (int i = 0; i < MAX_ENEMIES; i++) {
-                if (enemies[i].active &&
-                    CheckCollisionRecs(Rectangle{ bulletPos.x, bulletPos.y, 10, 10 },
-                        Rectangle{
-                    enemies[i].position.x, enemies[i].position.y, 30, 30
-                        })) {
-                    enemies[i].active = false;
-                    bulletActive = false;
-                    count++;
+                // Уменьшаем интервал появления врагов (делаем их более частыми)
+                if (enemySpawnRate > 0.3f) {
+                    enemySpawnRate -= 0.01f;  // Уменьшаем интервал появления медленно
                 }
             }
-        }
 
-        // Движение врагов к игроку
-        for (int i = 0; i < MAX_ENEMIES; i++) {
-            if (enemies[i].active) {
-                Vector2 direction = NormalizeVector(Vector2{ playerPos.x - enemies[i].position.x, playerPos.y - enemies[i].position.y });
-                enemies[i].position.x += direction.x * TARGET_SPEED;
-                enemies[i].position.y += direction.y * TARGET_SPEED;
+            // Движение игрока
+            if (IsKeyDown(KEY_W) && playerPos.y > 0) playerPos.y -= PLAYER_SPEED;
+            if (IsKeyDown(KEY_S) && playerPos.y < SCREEN_HEIGHT - 50) playerPos.y += PLAYER_SPEED;
+            if (IsKeyDown(KEY_A) && playerPos.x > 0) playerPos.x -= PLAYER_SPEED;
+            if (IsKeyDown(KEY_D) && playerPos.x < SCREEN_WIDTH - 50) playerPos.x += PLAYER_SPEED;
 
-                // Столкновение с игроком
-                if (CheckCollisionRecs(Rectangle{ playerPos.x, playerPos.y, 50, 50 },
-                    Rectangle{
-                    enemies[i].position.x, enemies[i].position.y, 30, 30
-                    })) {
-                    enemies[i].active = false;
-                    health--;
-                    shirHealth -= 50;
-                    if (health <= 0) game = false;
+            // Стрельба
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                // Найдем первое пустое место для пули
+                for (int i = 0; i < MAX_BULLETS; i++) {
+                    if (!bullets[i].active) {
+                        bullets[i].position = playerPos;
+                        bullets[i].active = true;
+
+                        Vector2 nearestEnemy = GetNearestEnemy();
+                        bullets[i].velocity = NormalizeVector(Vector2{ nearestEnemy.x - bullets[i].position.x, nearestEnemy.y - bullets[i].position.y });
+                        break; // Выход из цикла, чтобы выпустить только одну пулю за раз
+                    }
+                }
+            }
+
+            // Движение пуль
+            for (int i = 0; i < MAX_BULLETS; i++) {
+                if (bullets[i].active) {
+                    bullets[i].position.x += bullets[i].velocity.x * BULLET_SPEED;
+                    bullets[i].position.y += bullets[i].velocity.y * BULLET_SPEED;
+
+                    if (bullets[i].position.x < 0 || bullets[i].position.x > SCREEN_WIDTH ||
+                        bullets[i].position.y < 0 || bullets[i].position.y > SCREEN_HEIGHT) {
+                        bullets[i].active = false;
+                    }
+
+                    // Проверка на попадание в врага
+                    for (int j = 0; j < MAX_ENEMIES; j++) {
+                        if (enemies[j].active && CheckCollisionRecs(Rectangle{ bullets[i].position.x, bullets[i].position.y, 10, 10 },
+                            Rectangle{ enemies[j].position.x, enemies[j].position.y, ENEMY_SIZE, ENEMY_SIZE })) {
+                            enemies[j].active = false;  // Уничтожаем врага
+                            bullets[i].active = false;  // Останавливаем пулю
+                            count++; // Увеличиваем счет
+                        }
+                    }
+                }
+            }
+
+            // Движение врагов
+            for (int i = 0; i < MAX_ENEMIES; i++) {
+                if (enemies[i].active) {
+                    Vector2 direction = NormalizeVector(Vector2{ playerPos.x - enemies[i].position.x, playerPos.y - enemies[i].position.y });
+                    enemies[i].position.x += direction.x * enemySpeed;
+                    enemies[i].position.y += direction.y * enemySpeed;
+
+                    // Проверка на столкновение с игроком
+                    if (CheckCollisionRecs(Rectangle{ playerPos.x, playerPos.y, 50, 50 },
+                        Rectangle{ enemies[i].position.x, enemies[i].position.y, ENEMY_SIZE, ENEMY_SIZE })) {
+                        enemies[i].active = false;
+                        health--;
+                        shirHealth -= 50;
+                        if (health <= 0) game = false;
+                    }
                 }
             }
         }
@@ -170,23 +247,37 @@ int main(void) {
         BeginDrawing();
         ClearBackground(BLACK);
 
-        DrawRectangleV(playerPos, Vector2{ 50, 50 }, BLUE);  // Игрок
-        if (bulletActive) DrawRectangleV(bulletPos, Vector2{ 10, 10 }, YELLOW);  // Пуля
+        // Отображаем игрока
+        DrawRectangleV(playerPos, Vector2{ 50, 50 }, BLUE);
 
-        for (int i = 0; i < MAX_ENEMIES; i++) {
-            if (enemies[i].active) DrawRectangleV(enemies[i].position, Vector2{ 30, 30 }, GREEN);
+        // Отображаем пули
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (bullets[i].active) {
+                DrawRectangleV(bullets[i].position, Vector2{ 10, 10 }, YELLOW);
+            }
         }
 
-        DrawRectangle(10, 10, shirHealth, 20, RED);  // Полоска ХП
-        DrawText(TextFormat("Kills: %i", count), 10, 40, 20, WHITE);
-        DrawText(TextFormat("Health: %i", health), 10, 70, 20, WHITE);
-        DrawText(TextFormat("Wave: %i", waveNumber), 10, 100, 20, WHITE);
+        // Отображаем врагов
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            if (enemies[i].active) {
+                DrawRectangleV(enemies[i].position, Vector2{ ENEMY_SIZE, ENEMY_SIZE }, RED);
+            }
+        }
 
-        if (!game) DrawText("GAME OVER", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2, 40, RED);
+        // Отображаем ХП и количество убийств
+        DrawText(TextFormat("Health: %i", health), 10, 10, 20, WHITE);
+        DrawText(TextFormat("Kills: %i", count), 10, 40, 20, WHITE);
+        DrawRectangle(10, 80, shirHealth, 20, RED);  // ПАНЕЛЬ ХП
+
+        // Отображаем паузу
+        if (paused) {
+            DrawText("PAUSED", SCREEN_WIDTH / 2 - 80, SCREEN_HEIGHT / 2, 40, RED);
+        }
 
         EndDrawing();
     }
 
-    CloseWindow();
+    CloseWindow();  // Закрытие окна игры
+
     return 0;
 }
